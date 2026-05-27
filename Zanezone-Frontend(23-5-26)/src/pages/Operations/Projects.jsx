@@ -246,10 +246,9 @@ const Projects = () => {
                   <div className="space-y-1">
                     <CustomDatePicker
                       label="Start Date"
-                      selectedDate={modalType === 'add' ? formData.start : selectedProject.start}
+                      selectedDate={formData.start}
                       onChange={(date) => {
-                        if (modalType === 'add') setFormData({ ...formData, start: date });
-                        else setSelectedProject({ ...selectedProject, start: date });
+                        setFormData({ ...formData, start: date });
                       }}
                     />
                   </div>
@@ -275,7 +274,7 @@ const Projects = () => {
                           type="button"
                           onClick={() => setFormData({ ...formData, deliveryType: mode })}
                           className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter border transition-all ${formData.deliveryType === mode
-                            ? 'bg-accent/20 border-accent text-accent shadow-lg shadow-accent/5'
+                            ? 'bg-accent border-accent text-black shadow-lg shadow-accent/20'
                             : 'bg-white/5 border-white/10 text-muted hover:border-white/30'
                             }`}
                           disabled={modalType === 'view'}

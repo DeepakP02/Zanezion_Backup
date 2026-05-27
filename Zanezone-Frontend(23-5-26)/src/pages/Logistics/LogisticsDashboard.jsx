@@ -20,6 +20,7 @@ const LogisticsDashboard = () => {
   const { 
     fleet = [], routes = [], urgentTasks = [], logs = [], dispatchVehicle, 
     deliveries = [], dashboardStats, fetchDashboardStats, fetchFleet, fetchRoutes, fetchDeliveries,
+    updateDelivery,
     hasMenuPermission
   } = useData();
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
@@ -640,12 +641,49 @@ const LogisticsDashboard = () => {
               </div>
             </div>
 
-            <div className="flex gap-3 justify-end pt-6 border-t border-white/5">
+            <div className="flex flex-wrap gap-3 justify-end pt-6 border-t border-white/5">
+              {selectedMission && selectedMission.status !== 'delivered' && selectedMission.status !== 'Delivered' && selectedMission.status !== 'cancelled' && (
+                <>
+                  {(selectedMission.status === 'pending' || selectedMission.status === 'Pending' || selectedMission.status === 'Pending Pickup') && (
+                    <button
+                      onClick={async () => {
+                        await updateDelivery({ ...selectedMission, status: 'en_route' });
+                        setSelectedMission({ ...selectedMission, status: 'en_route' });
+                      }}
+                      className="px-6 py-3 bg-info/10 border border-info/20 text-info rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-info hover:text-black transition-all"
+                    >
+                      Mark En Route
+                    </button>
+                  )}
+                  {(selectedMission.status === 'en_route' || selectedMission.status === 'In Transit' || selectedMission.status === 'Dispatched') && (
+                    <button
+                      onClick={async () => {
+                        await updateDelivery({ ...selectedMission, status: 'Delivered' });
+                        setSelectedMission({ ...selectedMission, status: 'Delivered' });
+                      }}
+                      className="px-6 py-3 bg-success/10 border border-success/20 text-success rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-success hover:text-black transition-all"
+                    >
+                      Mark Delivered
+                    </button>
+                  )}
+                  <button
+                    onClick={async () => {
+                      if (window.confirm('Cancel this delivery?')) {
+                        await updateDelivery({ ...selectedMission, status: 'cancelled' });
+                        setIsViewModalOpen(false);
+                      }
+                    }}
+                    className="px-6 py-3 bg-danger/10 border border-danger/20 text-danger rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-danger hover:text-white transition-all"
+                  >
+                    Cancel Delivery
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => setIsViewModalOpen(false)}
                 className="py-4 px-10 text-[10px] font-black uppercase tracking-[0.2em] text-muted hover:text-white transition-all"
               >
-                Terminate Review
+                Close
               </button>
             </div>
           </div>

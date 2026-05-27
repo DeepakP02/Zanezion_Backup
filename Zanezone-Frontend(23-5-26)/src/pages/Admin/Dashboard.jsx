@@ -73,8 +73,8 @@ const Dashboard = () => {
 
   // --- Dashboard Intelligence Calibration ---
   const stats = useMemo(() => {
-    const openOrders = dashboardStats.openOrders ?? (orders || []).filter(o => o.status !== 'Delivered').length;
-    const completedOrders = dashboardStats.completedOrders ?? (orders || []).filter(o => o.status === 'Delivered').length;
+    const openOrders = dashboardStats.totalOrders ?? (orders || []).filter(o => o.status !== 'completed' && o.status !== 'cancelled').length;
+    const completedOrders = dashboardStats.completedOrders ?? (orders || []).filter(o => o.status === 'completed').length;
     const unpaidInvoices = dashboardStats.unpaidInvoices ?? (invoices || []).filter(i => i.status !== 'Paid').length;
 
     const now = new Date();
@@ -113,7 +113,10 @@ const Dashboard = () => {
     const lowStockItems = (inventory || []).filter(i => i.qty <= 10).length;
 
     const onlineStaff = dashboardStats.onlineStaff ?? (users || []).filter(u => u.role === 'Field Staff' && u.isAvailable).length;
-    const totalUsers = dashboardStats.onlineStaff || (users || []).length;
+    const totalUsers = dashboardStats.totalStaff || dashboardStats.onlineStaff || (users || []).length;
+    const activeChauffeurs = dashboardStats.activeChauffeurs ?? 0;
+    const activeEvents = dashboardStats.activeEvents ?? 0;
+    const openTickets = dashboardStats.openTickets ?? 0;
 
     const today = new Date().toISOString().slice(5, 10);
     const birthdayStaff = (users || []).filter(u => u.birthday && u.birthday.slice(5, 10) === today);
@@ -124,7 +127,8 @@ const Dashboard = () => {
       ordersTrend, 
       inventoryValue, lowStockItems,
       onlineStaff, totalUsers,
-      birthdayStaff 
+      birthdayStaff,
+      activeChauffeurs, activeEvents, openTickets
     };
   }, [orders, invoices, revenueFilter, users, dashboardStats, inventory]);
 
@@ -261,7 +265,10 @@ const Dashboard = () => {
           { label: 'Total Warehouse Assets', value: `$${(stats.inventoryValue / 1000).toFixed(1)}K`, icon: Package, color: 'text-accent', trend: stats.lowStockItems > 0 ? `${stats.lowStockItems} Low Stock` : 'Optimal', detail: 'Asset Valuation' },
           { label: 'Global Revenue flow', value: `$${(stats.relevantRevenue / 1000).toFixed(1)}K`, icon: DollarSign, color: 'text-success', trend: stats.revenueTrend, detail: 'Total Settlements' },
           { label: 'Active Operations', value: stats.openOrders, icon: ShoppingCart, color: 'text-info', trend: stats.ordersTrend, detail: 'Mission Pipeline' },
-          { label: 'Global Personnel', value: stats.totalUsers, icon: Users, color: 'text-primary', trend: stats.onlineStaff > 0 ? `${stats.onlineStaff} Online` : 'Active', detail: 'Total HQ Staff' }
+          { label: 'Global Personnel', value: stats.totalUsers, icon: Users, color: 'text-primary', trend: stats.onlineStaff > 0 ? `${stats.onlineStaff} Online` : 'Active', detail: 'Total HQ Staff' },
+        { label: 'Chauffeur Requests', value: stats.activeChauffeurs, icon: Truck, color: 'text-accent', trend: `Active`, detail: 'Pending Rides' },
+        { label: 'Active Events', value: stats.activeEvents, icon: Calendar, color: 'text-info', trend: 'Scheduled', detail: 'Concierge Events' },
+        { label: 'Open Support Cases', value: stats.openTickets, icon: AlertTriangle, color: 'text-warning', trend: 'Need Attention', detail: 'Support Tickets' }
         ].map((stat, idx) => (
           <div key={idx} className="glass-card p-5 sm:p-6 relative overflow-hidden group hover:border-accent/30 transition-all border-white/5 bg-gradient-to-br from-white/[0.02] to-transparent">
             <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:scale-110 group-hover:opacity-[0.05] transition-all duration-700 pointer-events-none">
@@ -376,7 +383,21 @@ const Dashboard = () => {
                     <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
                     <span className="text-xs font-bold text-white">Live Dispatches</span>
                   </div>
-                  <span className="text-lg font-bold text-white">{deliveries.filter(d => d.status === 'In Transit').length}</span>
+                  <span className="text-lg font-bold text-white">{deliveries.filter(d => ['en_route','assigned'].includes(d.status)).length}</span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                    <span className="text-xs font-bold text-white">Chauffeur Requests</span>
+                  </div>
+                  <span className="text-lg font-bold text-accent">{stats.activeChauffeurs}</span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-warning" />
+                    <span className="text-xs font-bold text-white">Open Support Tickets</span>
+                  </div>
+                  <span className="text-lg font-bold text-warning">{stats.openTickets}</span>
                 </div>
                 <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                   <div className="flex items-center gap-3">

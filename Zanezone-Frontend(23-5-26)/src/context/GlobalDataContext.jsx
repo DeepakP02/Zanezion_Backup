@@ -1870,8 +1870,23 @@ export const GlobalDataProvider = ({ children }) => {
           clientId: p.customer_id || p.company_id,
           client: p.client_name, // Mapping join result
           status: mapStatusToFrontend(p.status),
-          start: p.start_date ? p.start_date.split("T")[0] : "",
-          end: p.end_date ? p.end_date.split("T")[0] : "",
+          start: p.start_date ? (() => {
+            const d = new Date(p.start_date);
+            if (isNaN(d.getTime())) return p.start_date.split("T")[0];
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          })() : "",
+          end: p.end_date ? (() => {
+            const d = new Date(p.end_date);
+            if (isNaN(d.getTime())) return p.end_date.split("T")[0];
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          })() : "",
+          deliveryType: p.delivery_type || "Road",
         })),
       );
     } catch (e) {
@@ -2119,12 +2134,14 @@ export const GlobalDataProvider = ({ children }) => {
     try {
       const res = await api.get("/notifications");
       if (res.data?.success) {
-        setNotifications(filterDataForCurrentUser(res.data.data));
+        // Backend already scopes notifications to the current user via user_id and role_target+company_id.
+        // No additional client-side filtering needed — this prevents false notifications for new accounts.
+        setNotifications(res.data.data || []);
       }
     } catch (e) {
       console.error("Fetch notifications failed", e);
     }
-  }, [currentUser, filterDataForCurrentUser]);
+  }, [currentUser]);
 
   const fetchUnreadCount = React.useCallback(async () => {
     try {
@@ -2157,7 +2174,7 @@ export const GlobalDataProvider = ({ children }) => {
     }
   };
 
-  // Poll for new notifications every 30 seconds
+  // Poll for new notifications every 15 seconds
   React.useEffect(() => {
     if (!currentUser || !localStorage.getItem("token")) return;
     fetchNotifications();
@@ -2165,7 +2182,7 @@ export const GlobalDataProvider = ({ children }) => {
     const interval = setInterval(() => {
       fetchNotifications();
       fetchUnreadCount();
-    }, 30000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [currentUser, fetchNotifications, fetchUnreadCount]);
 
@@ -2219,7 +2236,7 @@ export const GlobalDataProvider = ({ children }) => {
   useEffect(() => {
     if (!currentUser || !localStorage.getItem("token")) return;
     fetchTickets();
-    const interval = setInterval(fetchTickets, 20000);
+    const interval = setInterval(fetchTickets, 10000); // Poll every 10 seconds for real-time updates
     return () => clearInterval(interval);
   }, [currentUser, fetchTickets]);
 
@@ -2232,7 +2249,7 @@ export const GlobalDataProvider = ({ children }) => {
       fetchProjects();
     };
     refreshOperationalState();
-    const interval = setInterval(refreshOperationalState, 20000);
+    const interval = setInterval(refreshOperationalState, 10000); // Poll every 10 seconds for cross-portal sync
     return () => clearInterval(interval);
   }, [currentUser, fetchOrders, fetchDeliveries, fetchProjects]);
 
@@ -4375,14 +4392,19 @@ export const GlobalDataProvider = ({ children }) => {
 
   const addProject = async (project) => {
     const mapStatusToBackend = (status) => {
-      switch (status?.toLowerCase()) {
+      switch (String(status || '').toLowerCase().trim()) {
         case "pending":
+        case "planned":
           return "planned";
         case "active":
+        case "in progress":
+        case "in_progress":
           return "in_progress";
         case "completed":
           return "completed";
         case "cancelled":
+        case "on_hold":
+        case "on hold":
           return "on_hold";
         default:
           return "planned";
@@ -4408,6 +4430,7 @@ export const GlobalDataProvider = ({ children }) => {
         customer_id: project.customerId || project.customer_id || null,
         client_user_id: project.clientUserId || project.client_user_id || null,
         client_name: project.client || project.clientName || null,
+        delivery_type: project.deliveryType || project.delivery_type || "Road",
       };
 
       const res = await api.post("/orders/projects", reqData);
@@ -4445,17 +4468,22 @@ export const GlobalDataProvider = ({ children }) => {
 
   const updateProject = async (updated) => {
     const mapStatusToBackend = (status) => {
-      switch (status?.toLowerCase()) {
+      switch (String(status || '').toLowerCase().trim()) {
         case "pending":
+        case "planned":
           return "planned";
         case "active":
+        case "in progress":
+        case "in_progress":
           return "in_progress";
         case "completed":
           return "completed";
         case "cancelled":
+        case "on_hold":
+        case "on hold":
           return "on_hold";
         default:
-          return status;
+          return "planned";
       }
     };
 
@@ -4467,6 +4495,10 @@ export const GlobalDataProvider = ({ children }) => {
         location: updated.location,
         start_date: updated.start || updated.startDate,
         manager_id: updated.manager_id || updated.managerId,
+        delivery_type: updated.deliveryType || updated.delivery_type || "Road",
+        company_id: updated.companyId || updated.company_id || updated.clientId || null,
+        customer_id: updated.customerId || updated.customer_id || null,
+        client_name: updated.client || updated.clientName || null,
       };
       await api.put(`/orders/projects/${updated.id}`, reqData);
       await fetchProjects();

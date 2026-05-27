@@ -833,6 +833,32 @@ const Clients = () => {
                                 {items.length > 3 && <span className="px-3 py-1 text-[10px] text-muted font-bold">+{items.length - 3} more</span>}
                               </div>
 
+                              {/* Location Details */}
+                              {(order.pickup_location || order.pickupLocation || order.location || order.delivery_address) && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                                  {(order.pickup_location || order.pickupLocation) && (
+                                    <div className="flex items-start gap-2 px-3 py-2 bg-white/[0.02] border border-white/5 rounded-xl">
+                                      <span className="text-[8px] font-black text-info/60 uppercase tracking-widest mt-0.5 shrink-0">Pickup</span>
+                                      <span className="text-[10px] font-bold text-info truncate">{order.pickup_location || order.pickupLocation}</span>
+                                    </div>
+                                  )}
+                                  {(order.location || order.delivery_address) && (
+                                    <div className="flex items-start gap-2 px-3 py-2 bg-white/[0.02] border border-white/5 rounded-xl">
+                                      <span className="text-[8px] font-black text-accent/60 uppercase tracking-widest mt-0.5 shrink-0">Drop-off</span>
+                                      <span className="text-[10px] font-bold text-accent truncate">{order.location || order.delivery_address}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {/* Delivery Mode */}
+                              {(order.type || order.deliveryMode || order.mode) && (
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-0.5 bg-white/5 rounded text-[9px] font-black text-muted uppercase tracking-widest">
+                                    {order.type || order.deliveryMode || order.mode}
+                                  </span>
+                                </div>
+                              )}
+
                               <div className="flex items-center justify-between pt-3 border-t border-white/5">
                                 <span className="text-sm font-black text-accent italic">${parseFloat(order.total_amount || order.total || 0).toLocaleString()}</span>
 

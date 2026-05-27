@@ -8,8 +8,12 @@ const ClientEvents = () => {
     const { events, addEvent, updateEvent, deleteEvent, currentUser, clients, fetchTickets } = useData();
 
     useEffect(() => {
-        if (fetchTickets) fetchTickets();
+        // Fetch fresh data on mount to ensure events list is up to date
+        if (fetchTickets) {
+            fetchTickets();
+        }
     }, [fetchTickets]);
+
     const clientName = currentUser?.name || 'Current Client';
     // Find the company record for this user so we can match events by company name
     const myCompany = (clients || []).find(c => {
@@ -282,14 +286,25 @@ const ClientEvents = () => {
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-muted uppercase tracking-widest text-accent">Mood Board / Inspiration (URL)</label>
-                            <input
-                                type="text"
-                                placeholder="Link to Pinterest/Mood Board"
-                                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none font-bold text-white shadow-inner"
-                                value={formData.moodBoard}
-                                onChange={(e) => setFormData({ ...formData, moodBoard: e.target.value })}
-                                disabled={modalType === 'view'}
-                            />
+                            {modalType === 'view' && formData.moodBoard ? (
+                                <a
+                                    href={formData.moodBoard.startsWith('http') ? formData.moodBoard : `https://${formData.moodBoard}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block w-full bg-accent/5 border border-accent/20 rounded-xl px-4 py-3 text-sm font-bold text-accent hover:bg-accent/10 transition-all truncate"
+                                >
+                                    🔗 {formData.moodBoard}
+                                </a>
+                            ) : (
+                                <input
+                                    type="url"
+                                    placeholder="https://pinterest.com/your-board or any link"
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none font-bold text-white shadow-inner"
+                                    value={formData.moodBoard}
+                                    onChange={(e) => setFormData({ ...formData, moodBoard: e.target.value })}
+                                    disabled={modalType === 'view'}
+                                />
+                            )}
                         </div>
                     </div>
                     <div className="space-y-1">
