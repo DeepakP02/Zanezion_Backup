@@ -10,3 +10,5 @@ uploads/
 coverage/
 dist/
 .DS_Store
+
+/generated/prisma

@@ -18,8 +18,9 @@ async function resolveValidCompanyId(candidateId) {
 }
 
 async function getDeliveryColumnSet() {
-    const [columns] = await db.query('SHOW COLUMNS FROM deliveries');
-    return new Set(columns.map((column) => column.Field));
+    // PostgreSQL compatible column introspection
+    const [rows] = await db.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'deliveries' AND table_schema = 'public'`);
+    return new Set(rows.map((column) => column.column_name));
 }
 
 // --- VEHICLES ---
@@ -186,7 +187,10 @@ exports.getDeliveries = async (req, res) => {
 
         const [rows] = await db.query(query, params);
         return successResponse(res, rows);
-    } catch (err) { return errorResponse(res, 'Failed to fetch deliveries.', 500); }
+    } catch (err) {
+    console.error('getDeliveries error:', err);
+    return errorResponse(res, 'Failed to fetch deliveries.', 500);
+}
 };
 
 exports.createDelivery = async (req, res) => {
@@ -342,9 +346,11 @@ exports.updateDeliveryStatus = async (req, res) => {
         const roleNorm = String(req.user?.role || '').toLowerCase().trim().replace(/\s+/g, '_');
         const isSuperAdmin = roleNorm === 'super_admin' || roleNorm === 'superadmin';
         const isHQManagement = (req.user?.company_id == 1 || !req.user?.company_id || req.companyScope == 1);
+        // Field staff, logistics, and operations staff can update delivery status without full company scope restriction
+        const isOperationalRole = ['field_staff', 'staff', 'logistics', 'operations', 'driver'].includes(roleNorm);
 
         let cs;
-        if (isSuperAdmin || (roleNorm === 'admin' && isHQManagement)) {
+        if (isSuperAdmin || (roleNorm === 'admin' && isHQManagement) || isOperationalRole) {
             cs = { clause: '', params: [] };
         } else {
             cs = companyScope(req);

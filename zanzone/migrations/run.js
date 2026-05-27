@@ -291,6 +291,12 @@ const migrations = [
 ];
 
 async function runMigrations() {
+    // Skip MySQL migrations if using PostgreSQL
+    const dbUrl = process.env.DATABASE_URL || '';
+    if (dbUrl.startsWith('postgres') || dbUrl.startsWith('postgresql')) {
+        console.log('  🕒 PostgreSQL detected. Skipping custom MySQL migrations (managed via Prisma).');
+        return;
+    }
     try {
         // Create migrations tracking table if it doesn't exist
         await db.query(`

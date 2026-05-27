@@ -36,8 +36,10 @@ function resolveRoleForStorage(logicalRole, allowedRoles) {
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
+        // Normalize email for case‑insensitive lookup (signup stores lower‑cased emails)
+        const normalizedEmail = String(email).toLowerCase().trim();
 
-        if (!email || !password) {
+        if (!normalizedEmail || !password) {
             return errorResponse(res, 'Email and password are required.', 400);
         }
 
@@ -48,7 +50,7 @@ exports.login = async (req, res) => {
              FROM users u
              LEFT JOIN companies c ON u.company_id = c.id
              WHERE u.email = ?`,
-            [email]
+            [normalizedEmail]
         );
 
         if (users.length === 0) {
@@ -65,20 +67,26 @@ exports.login = async (req, res) => {
             if (companyApproved && user.company_id) {
                 await db.query('UPDATE users SET status = ? WHERE id = ?', ['active', user.id]);
                 user.status = 'active';
+                console.info(`User ${email} auto-promoted to active (company approved)`);
             } else {
+                console.warn(`Login attempt for pending account ${email}`);
                 return errorResponse(res, 'Account pending approval.', 403);
             }
         }
+        // Check for rejected or inactive statuses
         if (user.status === 'rejected') {
+            console.warn(`Login attempt for rejected account ${email}`);
             return errorResponse(res, 'Account has been rejected.', 403);
         }
         if (user.status === 'inactive') {
+            console.warn(`Login attempt for inactive account ${email}`);
             return errorResponse(res, 'Account is inactive.', 403);
         }
 
         // Compare password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+            console.warn(`Login failed for email ${email}: password mismatch`);
             return errorResponse(res, 'Invalid credentials.', 401);
         }
 

@@ -1008,7 +1008,8 @@ exports.getAllProjects = async (req, res) => {
 // POST /api/orders/projects
 exports.createProject = async (req, res) => {
     try {
-        const { name, description, manager_id, startDate, location, status, company_id, customer_id, client_name, client_user_id } = req.body;
+        const { name, description, manager_id, startDate, location, status, company_id, customer_id, client_name, client_user_id, delivery_type, deliveryType } = req.body;
+        const deliveryTypeVal = delivery_type || deliveryType || 'Road';
         if (!name || !String(name).trim()) {
             return errorResponse(res, 'Project name is required.', 400);
         }
@@ -1139,8 +1140,8 @@ exports.createProject = async (req, res) => {
         const startDateVal = startDate ? String(startDate).split('T')[0] : null;
 
         const [result] = await db.query(
-            `INSERT INTO projects (company_id, customer_id, client_name, name, description, manager_id, location, status, start_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [companyId, customerId || null, resolvedClientName, String(name).trim(), description || null, managerId || null, location || null, projectStatus, startDateVal || null]
+            `INSERT INTO projects (company_id, customer_id, client_name, name, description, manager_id, location, status, start_date, delivery_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [companyId, customerId || null, resolvedClientName, String(name).trim(), description || null, managerId || null, location || null, projectStatus, startDateVal || null, deliveryTypeVal]
         );
 
         const [projects] = await db.query(`SELECT p.*, COALESCE(p.client_name, pc.name, c.name, cu.name) as client_name FROM projects p LEFT JOIN companies c ON p.company_id = c.id LEFT JOIN customers pc ON p.customer_id = pc.id LEFT JOIN customers cu ON p.company_id = cu.id WHERE p.id = ?`, [result.insertId]);
@@ -1154,7 +1155,48 @@ exports.createProject = async (req, res) => {
 // PUT /api/orders/projects/:id
 exports.updateProject = async (req, res) => {
     try {
-        const { name, description, status, location, start_date, manager_id } = req.body;
+        const { name, description, status, location, start_date, manager_id, delivery_type, deliveryType, company_id, customer_id, client_name } = req.body;
+        const deliveryTypeVal = delivery_type !== undefined ? delivery_type : (deliveryType !== undefined ? deliveryType : null);
+        
+        const normalizePositiveInt = (val) => {
+            if (val == null || val === '') return null;
+            const n = Number(val);
+            if (!Number.isFinite(n) || Number.isNaN(n) || n <= 0) return null;
+            return Math.trunc(n);
+        };
+
+        let resolvedCompanyId = normalizePositiveInt(company_id);
+        let resolvedCustomerId = normalizePositiveInt(customer_id);
+        let resolvedClientName = client_name != null && String(client_name).trim() !== '' ? String(client_name).trim() : null;
+
+        if (resolvedCompanyId && !resolvedCustomerId) {
+            // Check if this ID refers to a customer
+            const [custRows] = await db.query('SELECT id, company_id, name FROM customers WHERE id = ? LIMIT 1', [resolvedCompanyId]);
+            if (custRows.length) {
+                resolvedCustomerId = custRows[0].id;
+                resolvedCompanyId = normalizePositiveInt(custRows[0].company_id) || resolvedCompanyId;
+                resolvedClientName = resolvedClientName || custRows[0].name || null;
+            } else {
+                // Check users table
+                const [userRows] = await db.query('SELECT id, company_id, name, email FROM users WHERE id = ? LIMIT 1', [resolvedCompanyId]);
+                const userRow = userRows[0];
+                if (userRow) {
+                    resolvedClientName = resolvedClientName || userRow.name || userRow.email || null;
+                    const [custRows2] = await db.query(
+                        'SELECT id, company_id, name FROM customers WHERE created_by = ? OR LOWER(TRIM(email)) = ? ORDER BY created_at DESC LIMIT 1',
+                        [userRow.id, String(userRow.email || '').trim().toLowerCase()]
+                    );
+                    if (custRows2.length) {
+                        resolvedCustomerId = custRows2[0].id;
+                        resolvedCompanyId = normalizePositiveInt(custRows2[0].company_id) || resolvedCompanyId;
+                        resolvedClientName = resolvedClientName || custRows2[0].name || null;
+                    } else {
+                        resolvedCompanyId = normalizePositiveInt(userRow.company_id) || resolvedCompanyId;
+                    }
+                }
+            }
+        }
+
         const roleNorm = String(req.user?.role || '').toLowerCase().replace(/\s+/g, '_');
         const hqId = parseInt(process.env.DEFAULT_COMPANY_ID || 1, 10);
         const isHQ = (req.user?.company_id == hqId || !req.user?.company_id || req.companyScope == hqId);
@@ -1168,11 +1210,12 @@ exports.updateProject = async (req, res) => {
         }
 
         await db.query(
-            `UPDATE projects SET name = COALESCE(?, name), description = COALESCE(?, description), status = COALESCE(?, status), location = COALESCE(?, location), start_date = COALESCE(?, start_date), manager_id = COALESCE(?, manager_id) WHERE id = ?${cs.clause}`,
-            [name, description, status, location, start_date, manager_id, req.params.id, ...cs.params]
+            `UPDATE projects SET name = COALESCE(?, name), description = COALESCE(?, description), status = COALESCE(?, status), location = COALESCE(?, location), start_date = COALESCE(?, start_date), manager_id = COALESCE(?, manager_id), delivery_type = COALESCE(?, delivery_type), company_id = COALESCE(?, company_id), customer_id = COALESCE(?, customer_id), client_name = COALESCE(?, client_name) WHERE id = ?${cs.clause}`,
+            [name, description, status, location, start_date, manager_id, deliveryTypeVal, resolvedCompanyId, resolvedCustomerId, resolvedClientName, req.params.id, ...cs.params]
         );
         return successResponse(res, { id: req.params.id }, 'Project updated.');
     } catch (err) {
+        console.error('Update project error:', err);
         return errorResponse(res, 'Failed to update project.', 500);
     }
 };

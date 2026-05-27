@@ -7,7 +7,7 @@ const errorHandler = require('./middleware/errorHandler');
 const runMigrations = require('./migrations/run');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // ========================
 // MIDDLEWARE
@@ -88,6 +88,27 @@ app.listen(PORT, async () => {
     // Run pending database migrations
     console.log('📦 Checking database migrations...');
     await runMigrations();
+});
+
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Gracefully shutting down...');
+  try {
+    const db = require('./config/db');
+    await db.end();
+  } catch (e) {
+    console.error('Error during DB shutdown:', e);
+  }
+  process.exit(0);
+});
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 Terminating...');
+  try {
+    const db = require('./config/db');
+    await db.end();
+  } catch (e) {
+    console.error('Error during DB shutdown:', e);
+  }
+  process.exit(0);
 });
 
 module.exports = app;
